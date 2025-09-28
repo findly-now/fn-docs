@@ -166,7 +166,7 @@ graph TD
     end
 
     subgraph "PostGIS Database Layer"
-        I[🗺️ Spatial Index (GIST)] --> J[📊 Spatial Query Execution]
+        I[🗺️ Spatial Index - GIST] --> J[📊 Spatial Query Execution]
         J --> K[📏 Distance Calculation]
         K --> L[📈 Result Ranking]
     end

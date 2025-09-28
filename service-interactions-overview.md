@@ -368,7 +368,7 @@ graph TB
         I1[☁️ Google Cloud Platform]
         I2[📨 Confluent Cloud Kafka]
         I3[🗄️ Supabase PostgreSQL]
-        I4[🔄 Kubernetes (GKE)]
+        I4[🔄 Kubernetes - GKE]
         I5[📊 Prometheus + Grafana]
     end
 
