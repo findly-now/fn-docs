@@ -9,6 +9,37 @@
 - **Twilio Account** for SMS/WhatsApp delivery
 - **Email Provider** (SendGrid, Mailgun, or SMTP)
 
+## Platform Compatibility
+
+### Apple Silicon (M1/M2/M3) Support
+
+All docker-compose files include `platform: linux/amd64` specifications to prevent architecture warnings on Apple Silicon Macs. Services run under emulation but maintain full functionality.
+
+**Docker Compose Configuration:**
+```yaml
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    platform: linux/amd64  # Prevents AMD warnings on Apple Silicon
+    # ... rest of configuration
+```
+
+**Local Development Notes:**
+- PostgreSQL, Kafka, and Zookeeper containers use explicit platform specification
+- No performance impact for development workloads
+- Production deployments use native architecture optimizations
+
+### Cross-Platform Docker Builds
+
+For production deployments, use multi-platform builds:
+```bash
+# Build for both AMD64 and ARM64
+docker buildx build --platform linux/amd64,linux/arm64 -t service:latest .
+
+# Push to registry with multi-platform support
+docker buildx build --platform linux/amd64,linux/arm64 --push -t registry/service:latest .
+```
+
 ## Service Dependencies by Domain
 
 ### fn-posts Service

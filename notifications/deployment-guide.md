@@ -19,6 +19,11 @@
 - **Elixir** 1.15+ and **OTP** 26+ for local development
 - **Mix** build tool for Elixir applications
 
+### Platform Compatibility
+- **Apple Silicon Support**: Local development uses `platform: linux/amd64` in docker-compose files for PostgreSQL compatibility
+- **Multi-platform Builds**: Production supports both AMD64 and ARM64 architectures
+- **See**: [Platform Compatibility Guide](../CLOUD-SETUP.md#platform-compatibility)
+
 ### Access & Credentials
 - Confluent Cloud API keys and cluster endpoints
 - Database connection string with proper permissions

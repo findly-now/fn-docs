@@ -21,6 +21,11 @@
 - **Helm** 3.12+ for application deployment
 - **Docker** 20.10+ for container operations
 
+### Platform Compatibility
+- **Apple Silicon Support**: Local development uses `platform: linux/amd64` in docker-compose files for service compatibility
+- **Multi-platform Builds**: Infrastructure supports both AMD64 and ARM64 architectures
+- **See**: [Platform Compatibility Guide](../CLOUD-SETUP.md#platform-compatibility)
+
 ### Access Requirements
 - GCP Owner or Editor role for initial setup
 - GitHub repository admin access for CI/CD setup

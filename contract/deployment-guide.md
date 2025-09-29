@@ -17,6 +17,11 @@
 - **Docker** for containerized validation
 - **kubectl** for Kubernetes deployments (if applicable)
 
+### Platform Compatibility
+- **Apple Silicon Support**: Validation tools work natively on both Intel and Apple Silicon Macs
+- **Docker Integration**: Uses `platform: linux/amd64` when needed for tool compatibility
+- **See**: [Platform Compatibility Guide](../CLOUD-SETUP.md#platform-compatibility)
+
 ## Repository Structure Setup
 
 ```bash

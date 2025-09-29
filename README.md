@@ -141,9 +141,31 @@ graph TB
 - **Docker** & **Docker Compose**
 - **Kubernetes** cluster (local or cloud)
 - **Helm** 3.0+
-- **Go** 1.21+, **Elixir** 1.15+, **Python** 3.11+, **Rust** 1.70+
+- **Go** 1.25+, **Elixir** 1.16+, **Python** 3.11+, **Rust** 1.80+
 
-### One-Command Setup
+### 🏠 Local Development (Complete Environment)
+**NEW**: Run the entire Findly Now ecosystem locally with one command!
+
+```bash
+# Clone the workspace and start everything
+git clone https://github.com/findly-now/findly-now.git
+cd findly-now/fn-infra/local
+make local-all-up
+```
+
+This starts:
+- ✅ **Infrastructure**: PostgreSQL, Kafka, MinIO, Redis
+- ✅ **All Microservices**: fn-posts, fn-media-ai, fn-matcher, fn-notifications
+- ✅ **Event Streaming**: Pre-configured Kafka topics
+- ✅ **Development Tools**: API docs, health dashboards, hot reload
+
+**Access Points:**
+- **Posts API**: http://localhost:8080/api/v1/posts
+- **Media AI API**: http://localhost:8000/docs
+- **MinIO Console**: http://localhost:9001
+- **Health Checks**: All services at `/health` endpoints
+
+### ☁️ Cloud Deployment
 ```bash
 # Clone the workspace (all repositories)
 git clone https://github.com/findly-now/fn-infra.git
@@ -219,6 +241,24 @@ make e2e-test             # Run E2E tests
 - **Performance Testing** - Load testing critical paths
 - **Chaos Engineering** - Fault injection and recovery testing
 
+### 🧪 Testing the Complete System
+
+Test the entire microservices ecosystem:
+
+```bash
+# Test infrastructure health
+curl http://localhost:8080/health    # fn-posts health
+curl http://localhost:8000/          # fn-media-ai info
+curl http://localhost:9001/          # MinIO console
+
+# Test event streaming
+docker exec findly-kafka kafka-topics --bootstrap-server localhost:9092 --list
+
+# Test API endpoints
+curl -X GET "http://localhost:8080/api/v1/posts/test-id"  # API validation
+curl http://localhost:8000/docs                          # FastAPI docs
+```
+
 ### Development Commands Summary
 ```bash
 # Universal patterns across services
@@ -228,6 +268,11 @@ make test                  # Run test suite
 make fmt                   # Format code
 make lint                  # Run linter
 make build                 # Build for production
+
+# Local environment management
+make local-all-up          # Start complete ecosystem
+make local-all-down        # Stop all services
+make local-all-status      # Check service health
 ```
 
 ## 🤝 Contributing

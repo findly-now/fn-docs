@@ -294,6 +294,75 @@ docs(architecture): update domain boundaries
 - **Cache** preferences with TTL for performance
 - **Invalidate cache** on preference updates
 
+## Docker Standards
+
+### Platform Specifications
+- **Always specify** `platform: linux/amd64` for PostgreSQL, Kafka, and Zookeeper services
+- **Prevents architecture warnings** on Apple Silicon Macs (M1/M2/M3)
+- **Ensures consistency** across development environments
+
+```yaml
+# Required for cross-platform compatibility
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    platform: linux/amd64  # Prevents AMD warnings
+    # ... rest of configuration
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64  # Ensures compatibility
+    # ... rest of configuration
+```
+
+### Image Best Practices
+- **Use multi-stage builds** for production images to minimize size
+- **Minimize image layers** by combining RUN commands
+- **Use specific image tags** instead of `latest` for reproducibility
+- **Remove package caches** and temporary files in same layer
+
+```dockerfile
+# Multi-stage build example
+FROM rust:1.80-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+FROM alpine:3.18
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /app/target/release/service /usr/local/bin/
+CMD ["service"]
+```
+
+### Compose File Standards
+```yaml
+# Standard docker-compose structure
+version: '3.8'
+name: service-name
+
+services:
+  service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64  # When needed for compatibility
+    environment:
+      - ENV_VAR=${ENV_VAR}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+```
+
+### Development vs Production
+- **Development**: Use `platform: linux/amd64` for compatibility services
+- **Production**: Use `docker buildx` for multi-platform builds
+- **Testing**: Always test on target architecture before production deployment
+
 ## Performance Standards
 
 ### Database

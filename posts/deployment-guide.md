@@ -18,6 +18,11 @@
 - **Go** 1.25+ for local development
 - **Make** for build automation
 
+### Platform Compatibility
+- **Apple Silicon Support**: Local development uses `platform: linux/amd64` in docker-compose files for PostgreSQL compatibility
+- **Multi-platform Builds**: Production supports both AMD64 and ARM64 architectures
+- **See**: [Platform Compatibility Guide](../CLOUD-SETUP.md#platform-compatibility)
+
 ### Access & Credentials
 - GCP service account with Storage Admin permissions
 - Supabase database connection string with PostGIS enabled
