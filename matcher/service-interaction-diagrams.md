@@ -83,12 +83,19 @@ graph TD
     P --> R[fn-notifications: Enhanced Match Event]
 ```
 
-## 3. Multi-Factor Scoring Algorithm
+## 3. Multi-Factor Scoring Algorithm with Configurable Weights
 
 ```mermaid
 graph LR
-    A[Lost Post] --> B[Matching Engine]
+    A[Lost Post] --> B[Configurable Matching Engine]
     C[Found Post] --> B
+
+    subgraph "Environment Configuration"
+        ENV1[MATCHING_LOCATION_WEIGHT=0.3]
+        ENV2[MATCHING_VISUAL_WEIGHT=0.4]
+        ENV3[MATCHING_TEXT_WEIGHT=0.2]
+        ENV4[MATCHING_TEMPORAL_WEIGHT=0.1]
+    end
 
     B --> D[Location Scorer]
     B --> E[Visual Scorer]
@@ -116,12 +123,22 @@ graph LR
     F3 --> H
     G3 --> H
 
-    H --> I[Final Score: 0.87]
+    ENV1 --> H
+    ENV2 --> H
+    ENV3 --> H
+    ENV4 --> H
 
-    H --> J[Weight: Location 40%]
-    H --> K[Weight: Visual 35%]
-    H --> L[Weight: Text 15%]
+    H --> I[Final Score: 0.847]
+
+    H --> J[Weight: Location 30%]
+    H --> K[Weight: Visual 40%]
+    H --> L[Weight: Text 20%]
     H --> M[Weight: Temporal 10%]
+
+    style ENV1 fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style ENV2 fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style ENV3 fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style ENV4 fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 ```
 
 ## 4. Match Lifecycle State Machine
@@ -187,7 +204,7 @@ sequenceDiagram
     N->>F: Thank You Message
 ```
 
-## 6. Event-Driven Architecture Flow
+## 6. Event-Driven Architecture Flow with Correct Topic Names
 
 ```mermaid
 graph TD
@@ -195,33 +212,44 @@ graph TD
         A[User Creates Post] --> B[PostCreated Event]
     end
 
+    subgraph "Kafka Topics"
+        C["posts.events"]
+        D["media-ai.enrichment"]
+        E["posts.matching"]
+    end
+
     subgraph "fn-media-ai"
-        C[Photo Analysis] --> D[PostEnhanced Event]
+        F[Photo Analysis] --> G[PostEnhanced Event]
     end
 
     subgraph "fn-matcher"
-        E[Event Consumer] --> F[Matching Engine]
-        F --> G[Match Detection]
-        G --> H[Confidence Evaluation]
-        H --> I[Store Match]
-        I --> J[PostMatched Event]
+        H[Event Consumer] --> I[Configurable Matching Engine]
+        I --> J[Match Detection]
+        J --> K[Confidence Evaluation]
+        K --> L[Store Match]
+        L --> M[PostMatched Event]
 
-        K[User Interaction] --> L[Match Confirmation]
-        L --> M[PostClaimed Event]
+        N[User Interaction] --> O[Match Confirmation]
+        O --> P[PostClaimed Event]
     end
 
     subgraph "fn-notifications"
-        N[Notification Engine] --> O[Multi-Channel Delivery]
+        Q[Notification Engine] --> R[Multi-Channel Delivery]
     end
 
-    B --> E
-    D --> E
-    J --> N
-    M --> N
+    B --> C
+    C --> H
+    G --> D
+    D --> H
+    M --> E
+    P --> E
+    E --> Q
 
-    style E fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#bbf,stroke:#333,stroke-width:2px
-    style N fill:#bfb,stroke:#333,stroke-width:2px
+    style C fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style D fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style E fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style I fill:#bbf,stroke:#333,stroke-width:2px
+    style Q fill:#bfb,stroke:#333,stroke-width:2px
 ```
 
 ## 7. Location-Based Matching Algorithm

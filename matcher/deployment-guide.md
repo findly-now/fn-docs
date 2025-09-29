@@ -50,26 +50,24 @@ REDIS_MAX_CONNECTIONS=10
 REDIS_CONNECTION_TIMEOUT=5s
 REDIS_POOL_TIMEOUT=10s
 
-# Kafka Event Processing
-KAFKA_BROKERS=your-cluster.confluent.cloud:9092
-KAFKA_GROUP_ID=fn-matcher-production
-KAFKA_CLIENT_ID=fn-matcher-prod-001
+# Kafka Event Processing (Standardized Configuration)
+KAFKA_BOOTSTRAP_SERVERS=your-cluster.confluent.cloud:9092
+KAFKA_SASL_USERNAME=your-api-key
+KAFKA_SASL_PASSWORD=your-api-secret
 KAFKA_SECURITY_PROTOCOL=SASL_SSL
-KAFKA_SECURITY_MECHANISMS=PLAIN
-KAFKA_SECURITY_USERNAME=your-api-key
-KAFKA_SECURITY_PASSWORD=your-api-secret
+KAFKA_SASL_MECHANISM=PLAIN
+KAFKA_CONSUMER_GROUP_ID=fn-matcher-production
 
-# Kafka Topics
-KAFKA_TOPICS_POSTS_LIFECYCLE=fn-posts.post.lifecycle
-KAFKA_TOPICS_MEDIA_AI_ENRICHMENT=fn-media-ai.photo.analyzed
-KAFKA_TOPICS_POSTS_MATCHING=fn-matcher.post.matched
-KAFKA_TOPICS_POSTS_CLAIMED=fn-matcher.post.claimed
+# Kafka Topics (Standardized Names)
+KAFKA_TOPICS_POSTS=posts.events                    # Input: Posts events
+KAFKA_TOPICS_ENRICHMENT=media-ai.enrichment        # Input: Media AI enriched posts
+KAFKA_TOPICS_MATCHING=posts.matching               # Output: Matching events
 
-# Matching Algorithm Configuration
-MATCHING_LOCATION_WEIGHT=0.40       # Location proximity weight (40%)
-MATCHING_VISUAL_WEIGHT=0.35         # Visual similarity weight (35%)
-MATCHING_TEXT_WEIGHT=0.15           # Text similarity weight (15%)
-MATCHING_TEMPORAL_WEIGHT=0.10       # Temporal proximity weight (10%)
+# Configurable Matching Algorithm Weights
+MATCHING_LOCATION_WEIGHT=0.3        # Location proximity weight (30%)
+MATCHING_VISUAL_WEIGHT=0.4          # Visual similarity weight (40%)
+MATCHING_TEXT_WEIGHT=0.2            # Text similarity weight (20%)
+MATCHING_TEMPORAL_WEIGHT=0.1        # Temporal proximity weight (10%)
 
 # Confidence Thresholds
 CONFIDENCE_AUTO_ALERT=0.90          # Auto-alert both parties (90%+)
@@ -95,8 +93,16 @@ SERVER_PORT=8003
 RUST_LOG=fn_matcher=debug,tower_http=debug,sqlx=debug
 DATABASE_URL=postgresql://postgres:postgres@localhost:5434/fn_matcher
 REDIS_URL=redis://localhost:6380
-KAFKA_BROKERS=localhost:9094
-KAFKA_SECURITY_PROTOCOL=plaintext
+
+# Local Kafka (no authentication)
+KAFKA_BOOTSTRAP_SERVERS=localhost:9094
+KAFKA_SECURITY_PROTOCOL=PLAINTEXT
+KAFKA_CONSUMER_GROUP_ID=fn-matcher-dev
+
+# Local topic names (same as production)
+KAFKA_TOPICS_POSTS=posts.events
+KAFKA_TOPICS_ENRICHMENT=media-ai.enrichment
+KAFKA_TOPICS_MATCHING=posts.matching
 ```
 
 **Staging Environment**:
@@ -746,16 +752,23 @@ curl http://localhost:8003/health/detailed | jq '.database'
 **Kafka Consumer Lag**:
 ```bash
 # Check consumer lag
-kafka-consumer-groups --bootstrap-server $KAFKA_BROKERS \
+kafka-consumer-groups --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --command-config kafka.properties \
   --group fn-matcher-production \
   --describe
 
-# Reset consumer group if needed
-kafka-consumer-groups --bootstrap-server $KAFKA_BROKERS \
+# Reset consumer group if needed (posts.events topic)
+kafka-consumer-groups --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --command-config kafka.properties \
   --group fn-matcher-production \
   --reset-offsets --to-latest \
-  --topic posts.lifecycle \
+  --topic posts.events \
   --execute
+
+# Check topic configuration
+kafka-topics --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
+  --command-config kafka.properties \
+  --describe --topic posts.events
 ```
 
 **Performance Debugging**:

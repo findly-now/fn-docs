@@ -405,6 +405,95 @@ graph TD
     style S fill:#FF9800
 ```
 
+## Kafka Topic Flow Architecture
+
+### Standardized Event Flow with Correct Topic Names
+
+```mermaid
+graph TD
+    subgraph "Event Producers"
+        A[fn-posts Service] --> B["posts.events Topic"]
+        C[fn-media-ai Service] --> D["media-ai.enrichment Topic"]
+        E[fn-matcher Service] --> F["posts.matching Topic"]
+        G[External Services] --> H["users.lifecycle Topic"]
+    end
+
+    subgraph "Kafka Topics (Confluent Cloud)"
+        B["posts.events<br/>• post.created<br/>• post.updated<br/>• post.resolved<br/>• post.deleted"]
+        D["media-ai.enrichment<br/>• post.enhanced<br/>• analysis.completed"]
+        F["posts.matching<br/>• post.matched<br/>• post.claimed<br/>• match.expired<br/>• match.confirmed"]
+        H["users.lifecycle<br/>• user.registered<br/>• user.updated<br/>• organization.staff_added"]
+    end
+
+    subgraph "Event Consumers"
+        I[fn-notifications<br/>Processes ALL topics]
+        J[fn-media-ai<br/>Consumes: posts.events]
+        K[fn-matcher<br/>Consumes: posts.events<br/>+ media-ai.enrichment]
+    end
+
+    subgraph "Schema Registry"
+        L[Avro Schema Validation]
+        M[Version Management]
+        N[Compatibility Checking]
+    end
+
+    B --> I
+    D --> I
+    F --> I
+    H --> I
+    B --> J
+    B --> K
+    D --> K
+
+    B --> L
+    D --> L
+    F --> L
+    H --> L
+
+    L --> M
+    M --> N
+
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style D fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style F fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style H fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style I fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+```
+
+### Cross-Service Event Contract Mapping
+
+```mermaid
+sequenceDiagram
+    participant Posts as fn-posts
+    participant PostsEvents as posts.events
+    participant MediaAI as fn-media-ai
+    participant Enrichment as media-ai.enrichment
+    participant Matcher as fn-matcher
+    participant Matching as posts.matching
+    participant Notifications as fn-notifications
+    participant Users as users.lifecycle
+
+    Note over Posts,Users: Event Flow with Standard Topic Names
+
+    Posts->>PostsEvents: post.created
+    PostsEvents->>MediaAI: Trigger photo analysis
+    PostsEvents->>Matcher: Trigger initial matching
+    PostsEvents->>Notifications: Send confirmation
+
+    MediaAI->>Enrichment: post.enhanced
+    Enrichment->>Matcher: Enhanced data for matching
+    Enrichment->>Notifications: Analysis completion
+
+    Matcher->>Matching: post.matched
+    Matcher->>Matching: match.expired
+    Matching->>Notifications: Match alerts
+
+    Users->>Notifications: user.registered
+    Users->>Notifications: organization.staff_added
+
+    Note over Posts,Users: All events use Avro schemas with backward compatibility
+```
+
 ## Schema Governance Dashboard
 
 ### Real-time Contract Management Metrics

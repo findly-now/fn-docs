@@ -47,28 +47,74 @@ rdkafka       // Kafka event processing
 redis         // Caching and rate limiting
 ```
 
-### 2. Multi-Factor Matching Algorithm
-**Decision**: Use weighted, multi-factor analysis rather than single-criteria matching.
+### 2. Configurable Multi-Factor Matching Algorithm
+**Decision**: Use weighted, multi-factor analysis with environment-configurable weights.
 
-**Why**: Single-factor matching produces too many false positives/negatives:
+**Why**: Single-factor matching produces too many false positives/negatives, and different environments may require different algorithm tuning:
 
-| Factor | Weight | Purpose | Method |
-|--------|--------|---------|--------|
-| Location Proximity | 40% | Geographic nearness | PostGIS distance queries with decay |
-| Visual Similarity | 35% | Photo-based matching | AI tags, colors, objects from Media AI |
-| Text Similarity | 15% | Description matching | TF-IDF + semantic similarity |
-| Temporal Proximity | 10% | Time-based scoring | Exponential decay from report time |
+| Factor | Default Weight | Environment Variable | Purpose | Method |
+|--------|----------------|---------------------|---------|--------|
+| Location Proximity | 30% | `MATCHING_LOCATION_WEIGHT` | Geographic nearness | PostGIS distance queries with decay |
+| Visual Similarity | 40% | `MATCHING_VISUAL_WEIGHT` | Photo-based matching | AI tags, colors, objects from Media AI |
+| Text Similarity | 20% | `MATCHING_TEXT_WEIGHT` | Description matching | TF-IDF + semantic similarity |
+| Temporal Proximity | 10% | `MATCHING_TEMPORAL_WEIGHT` | Time-based scoring | Exponential decay from report time |
 
-**Algorithm Architecture**:
+**Configurable Algorithm Architecture**:
 ```rust
 pub struct MatchingEngine {
     location_scorer: LocationProximityScorer,
     visual_scorer: VisualSimilarityScorer,
     text_scorer: TextSimilarityScorer,
     temporal_scorer: TemporalProximityScorer,
+    weights: AlgorithmWeights,
+}
+
+#[derive(Debug, Clone)]
+pub struct AlgorithmWeights {
+    pub location: f64,
+    pub visual: f64,
+    pub text: f64,
+    pub temporal: f64,
+}
+
+impl AlgorithmWeights {
+    pub fn from_env() -> Result<Self> {
+        let location = env::var("MATCHING_LOCATION_WEIGHT")
+            .unwrap_or_else(|_| "0.3".to_string())
+            .parse::<f64>()?;
+        let visual = env::var("MATCHING_VISUAL_WEIGHT")
+            .unwrap_or_else(|_| "0.4".to_string())
+            .parse::<f64>()?;
+        let text = env::var("MATCHING_TEXT_WEIGHT")
+            .unwrap_or_else(|_| "0.2".to_string())
+            .parse::<f64>()?;
+        let temporal = env::var("MATCHING_TEMPORAL_WEIGHT")
+            .unwrap_or_else(|_| "0.1".to_string())
+            .parse::<f64>()?;
+
+        // Validate weights sum to 1.0 (within tolerance)
+        let total = location + visual + text + temporal;
+        if (total - 1.0).abs() > 0.01 {
+            return Err(anyhow::anyhow!(
+                "Algorithm weights must sum to 1.0, got: {}", total
+            ));
+        }
+
+        Ok(Self { location, visual, text, temporal })
+    }
 }
 
 impl MatchingEngine {
+    pub fn new(weights: AlgorithmWeights) -> Self {
+        Self {
+            location_scorer: LocationProximityScorer::new(),
+            visual_scorer: VisualSimilarityScorer::new(),
+            text_scorer: TextSimilarityScorer::new(),
+            temporal_scorer: TemporalProximityScorer::new(),
+            weights,
+        }
+    }
+
     pub async fn calculate_match_score(
         &self,
         lost_post: &Post,
@@ -79,19 +125,40 @@ impl MatchingEngine {
         let text_score = self.text_scorer.score(lost_post, found_post).await?;
         let temporal_score = self.temporal_scorer.score(lost_post, found_post).await?;
 
-        let weighted_score = (location_score * 0.40) +
-                           (visual_score * 0.35) +
-                           (text_score * 0.15) +
-                           (temporal_score * 0.10);
+        let weighted_score = (location_score * self.weights.location) +
+                           (visual_score * self.weights.visual) +
+                           (text_score * self.weights.text) +
+                           (temporal_score * self.weights.temporal);
 
         Ok(MatchScore::new(weighted_score, vec![
-            MatchReason::location(location_score),
-            MatchReason::visual(visual_score),
-            MatchReason::text(text_score),
-            MatchReason::temporal(temporal_score),
+            MatchReason::location(location_score, self.weights.location),
+            MatchReason::visual(visual_score, self.weights.visual),
+            MatchReason::text(text_score, self.weights.text),
+            MatchReason::temporal(temporal_score, self.weights.temporal),
         ]))
     }
 }
+```
+
+**Weight Configuration Examples**:
+```bash
+# Production (balanced)
+MATCHING_LOCATION_WEIGHT=0.3
+MATCHING_VISUAL_WEIGHT=0.4
+MATCHING_TEXT_WEIGHT=0.2
+MATCHING_TEMPORAL_WEIGHT=0.1
+
+# Development (favor visual matching for testing)
+MATCHING_LOCATION_WEIGHT=0.2
+MATCHING_VISUAL_WEIGHT=0.6
+MATCHING_TEXT_WEIGHT=0.15
+MATCHING_TEMPORAL_WEIGHT=0.05
+
+# High-density urban (reduce location weight)
+MATCHING_LOCATION_WEIGHT=0.15
+MATCHING_VISUAL_WEIGHT=0.5
+MATCHING_TEXT_WEIGHT=0.25
+MATCHING_TEMPORAL_WEIGHT=0.1
 ```
 
 ### 3. PostgreSQL + PostGIS for Geospatial Matching

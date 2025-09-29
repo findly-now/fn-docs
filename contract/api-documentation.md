@@ -580,29 +580,48 @@ servers:
     description: Staging Kafka cluster
 
 channels:
-  'fn-posts.post.created':
-    description: Published when a new lost or found post is created
+  'posts.events':
+    description: Published when post lifecycle events occur (created, updated, resolved, deleted)
     publish:
-      operationId: publishPostCreated
-      summary: Publish post created event
+      operationId: publishPostLifecycleEvent
+      summary: Publish post lifecycle events
       message:
-        $ref: '#/components/messages/PostCreated'
+        oneOf:
+          - $ref: '#/components/messages/PostCreated'
+          - $ref: '#/components/messages/PostUpdated'
+          - $ref: '#/components/messages/PostResolved'
+          - $ref: '#/components/messages/PostDeleted'
 
-  'fn-posts.post.status_updated':
-    description: Published when a post status changes
+  'media-ai.enrichment':
+    description: Published when AI enhancement and analysis completes
     publish:
-      operationId: publishPostStatusUpdated
-      summary: Publish post status update event
-      message:
-        $ref: '#/components/messages/PostStatusUpdated'
-
-  'fn-media-ai.post.enhanced':
-    description: Consumed when AI enhancement completes
-    subscribe:
-      operationId: handlePostEnhanced
-      summary: Handle post enhancement completion
+      operationId: publishPostEnhanced
+      summary: Publish post enhancement completion
       message:
         $ref: '#/components/messages/PostEnhanced'
+
+  'posts.matching':
+    description: Published when matching events occur (matched, claimed, expired)
+    publish:
+      operationId: publishMatchingEvent
+      summary: Publish matching events
+      message:
+        oneOf:
+          - $ref: '#/components/messages/PostMatched'
+          - $ref: '#/components/messages/PostClaimed'
+          - $ref: '#/components/messages/MatchExpired'
+          - $ref: '#/components/messages/MatchConfirmed'
+
+  'users.lifecycle':
+    description: Published when user lifecycle events occur
+    subscribe:
+      operationId: handleUserLifecycleEvent
+      summary: Handle user lifecycle events
+      message:
+        oneOf:
+          - $ref: '#/components/messages/UserRegistered'
+          - $ref: '#/components/messages/UserUpdated'
+          - $ref: '#/components/messages/OrganizationStaffAdded'
 
 components:
   securitySchemes:

@@ -39,13 +39,15 @@ fn-contract/
 │   ├── media-ai.yaml      # fn-media-ai REST API
 │   └── notifications.yaml # fn-notifications REST API
 ├── events/                # AsyncAPI event schemas
-│   ├── posts-events.yaml  # Post lifecycle events
-│   ├── match-events.yaml  # Matching events
-│   └── ai-events.yaml     # AI processing events
+│   ├── posts-events.yaml  # Post lifecycle events (posts.events topic)
+│   ├── match-events.yaml  # Matching events (posts.matching topic)
+│   ├── enrichment-events.yaml # AI enrichment events (media-ai.enrichment topic)
+│   └── user-events.yaml   # User lifecycle events (users.lifecycle topic)
 └── avro/                  # Avro schemas for Kafka
-    ├── post-created.avsc
-    ├── post-enhanced.avsc
-    └── match-detected.avsc
+    ├── post-created.avsc   # posts.events schema
+    ├── post-enhanced.avsc  # media-ai.enrichment schema
+    ├── match-detected.avsc # posts.matching schema
+    └── match-expired.avsc  # posts.matching schema (new)
 ```
 
 ### 2. Multi-Format Schema Support

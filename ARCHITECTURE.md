@@ -89,25 +89,27 @@
 **Primary Communication**: Confluent Cloud Kafka with Avro schemas
 
 ```
-Posts Domain Events:
+Posts Domain Events (Topic: posts.events):
 ├── post.created     → Notifications Domain (confirmation)
 ├── post.created     → Media AI Domain (photo analysis)
 ├── post.created     → Matcher Domain (initial matching)
-├── post.matched     → Notifications Domain (match alerts)
-├── post.claimed     → Notifications Domain (urgent SMS)
-└── post.resolved    → Notifications Domain (success story)
+├── post.updated     → Notifications Domain (status updates)
+├── post.resolved    → Notifications Domain (success story)
+└── post.deleted     → Notifications Domain (deletion confirmation)
 
-Media AI Domain Events:
+Media AI Domain Events (Topic: media-ai.enrichment):
 ├── post.enhanced    → Posts Domain (enriched metadata)
 └── post.enhanced    → Matcher Domain (improved matching)
 
-Matcher Domain Events:
+Matcher Domain Events (Topic: posts.matching):
 ├── post.matched     → Notifications Domain (match alerts)
 ├── post.claimed     → Notifications Domain (urgent claim SMS)
-└── match.expired    → Notifications Domain (expiration notice)
+├── match.expired    → Notifications Domain (expiration notice)
+└── match.confirmed  → Notifications Domain (successful match)
 
-User Domain Events:
+User Domain Events (Topic: users.lifecycle):
 ├── user.registered       → Notifications Domain (welcome)
+├── user.updated         → Notifications Domain (profile changes)
 └── organization.staff_added → Notifications Domain (onboarding)
 ```
 
@@ -119,37 +121,55 @@ graph TD
         A[User Creates Post] --> B[PostCreated Event]
         B --> C[Post Status Updates]
         C --> D[PostResolved Event]
+        E[Post Deletion] --> F[PostDeleted Event]
+    end
+
+    subgraph "Kafka Topics"
+        G["posts.events<br/>(Posts Producer)"]
+        H["media-ai.enrichment<br/>(Media AI Producer)"]
+        I["posts.matching<br/>(Matcher Producer)"]
+        J["users.lifecycle<br/>(External Producer)"]
     end
 
     subgraph "Media AI Domain (fn-media-ai)"
-        E[Photo Analysis] --> F[AI Processing]
-        F --> G[PostEnhanced Event]
+        K[Photo Analysis] --> L[AI Processing]
+        L --> M[PostEnhanced Event]
     end
 
     subgraph "Matcher Domain (fn-matcher)"
-        H[Initial Matching] --> I[Enhanced Matching]
-        I --> J[Match Detection]
-        J --> K[PostMatched Event]
-        L[User Claims Item] --> M[PostClaimed Event]
-        N[Match Expiration] --> O[MatchExpired Event]
+        N[Initial Matching] --> O[Enhanced Matching]
+        O --> P[Match Detection]
+        P --> Q[PostMatched Event]
+        R[User Claims Item] --> S[PostClaimed Event]
+        T[Match Expiration] --> U[MatchExpired Event]
     end
 
     subgraph "Notifications Domain (fn-notifications)"
-        P[Multi-Channel Delivery] --> Q[Email/SMS/Push]
-        R[Delivery Tracking] --> S[Analytics]
+        V[Event Processing] --> W[Multi-Channel Delivery]
+        W --> X[Email/SMS/Push/WhatsApp]
+        Y[Delivery Tracking] --> Z[Analytics]
     end
 
-    B --> E
-    B --> H
-    G --> I
-    K --> P
-    M --> P
-    O --> P
-    D --> P
+    B --> G
+    D --> G
+    F --> G
+    G --> K
+    G --> N
+    M --> H
+    H --> O
+    Q --> I
+    S --> I
+    U --> I
+    G --> V
+    H --> V
+    I --> V
+    J --> V
 
-    style H fill:#f9f,stroke:#333,stroke-width:2px
-    style I fill:#bbf,stroke:#333,stroke-width:2px
-    style P fill:#bfb,stroke:#333,stroke-width:2px
+    style G fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style H fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style I fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style J fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    style V fill:#bfb,stroke:#333,stroke-width:2px
 ```
 
 ### Anti-Corruption Layers

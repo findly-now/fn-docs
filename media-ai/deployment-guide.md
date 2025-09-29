@@ -58,19 +58,19 @@ CORS_ALLOW_METHODS="GET,POST,OPTIONS"
 CORS_ALLOW_HEADERS="*"
 ```
 
-**Kafka Event Streaming Configuration**:
+**Kafka Event Streaming Configuration (Standardized)**:
 ```bash
 # Confluent Cloud Kafka Configuration
 KAFKA_BOOTSTRAP_SERVERS="your-kafka-cluster.confluent.cloud:9092"
-KAFKA_SECURITY_PROTOCOL="SASL_SSL"
-KAFKA_SASL_MECHANISM="PLAIN"
 KAFKA_SASL_USERNAME="your-kafka-api-key"
 KAFKA_SASL_PASSWORD="your-kafka-api-secret"
+KAFKA_SECURITY_PROTOCOL="SASL_SSL"
+KAFKA_SASL_MECHANISM="PLAIN"
 
-# Topic Configuration
+# Topic Configuration (Standardized Names)
 KAFKA_CONSUMER_GROUP_ID="fn-media-ai-production"
-KAFKA_POSTS_TOPIC="fn-posts.post.created"
-KAFKA_ENHANCEMENTS_TOPIC="fn-media-ai.post.enhanced"
+KAFKA_CONSUMER_TOPICS="posts.events"           # Input: Posts events for photo analysis
+KAFKA_POST_ENHANCED_TOPIC="media-ai.enrichment" # Output: Enhanced posts with AI metadata
 
 # Consumer Performance Settings
 KAFKA_AUTO_OFFSET_RESET="latest"
