@@ -61,9 +61,22 @@ graph TB
     end
 
     subgraph "Data Layer"
-        PG[(PostgreSQL<br/>Primary Data)]
-        GCS[(Google Cloud Storage<br/>Photos)]
-        REDIS[(Redis<br/>Caching)]
+        subgraph "Posts Domain"
+            PG_POSTS[(PostgreSQL<br/>Posts DB + PostGIS)]
+            GCS[(Google Cloud Storage<br/>Photos)]
+        end
+        subgraph "Notifications Domain"
+            PG_NOTIF[(PostgreSQL<br/>Notifications DB)]
+        end
+        subgraph "Media AI Domain"
+            PG_AI[(PostgreSQL<br/>Media AI DB)]
+        end
+        subgraph "Matcher Domain"
+            PG_MATCH[(PostgreSQL<br/>Matcher DB)]
+        end
+        subgraph "Shared Infrastructure"
+            REDIS[(Redis<br/>Caching)]
+        end
     end
 
     U --> GW
@@ -80,11 +93,12 @@ graph TB
     AI --> KAFKA
     MATCH --> KAFKA
 
-    POSTS --> PG
+    POSTS --> PG_POSTS
     POSTS --> GCS
-    NOTIF --> PG
+    NOTIF --> PG_NOTIF
+    AI --> PG_AI
     AI --> GCS
-    MATCH --> PG
+    MATCH --> PG_MATCH
 
     POSTS --> REDIS
     AI --> REDIS
