@@ -265,7 +265,7 @@ confluent kafka topic create production-fn-posts.post.resolved \
   --partitions 6 \
   --config retention.ms=2592000000
 
-confluent kafka topic create production-fn-posts.photo.uploaded \
+confluent kafka topic create production-fn-posts.photo.added \
   --partitions 3 \
   --config retention.ms=604800000   # 7 days
 ```

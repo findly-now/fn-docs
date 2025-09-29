@@ -103,13 +103,18 @@ func (s *PhotoService) UploadPhoto(req PhotoUploadRequest) (*Photo, error) {
     // Create domain photo entity
     photo := domain.NewPhoto(req.PostID, publicURL, thumbnailURL, req.ContentType)
 
-    // Publish photo uploaded event
-    s.eventPublisher.Publish("photo.uploaded", PhotoUploadedEvent{
-        PostID:       req.PostID,
-        PhotoURL:     publicURL,
-        ThumbnailURL: thumbnailURL,
-        UploadedAt:   time.Now(),
-    })
+    // Publish photo added event
+    event := domain.NewPostEvent(
+        domain.EventTypePhotoAdded,
+        post.ID(),
+        post.CreatedBy(),
+        post.OrganizationID(),
+        &domain.PhotoEventData{
+            PostID: post.ID(),
+            Photo:  photo,
+        },
+    )
+    s.eventPublisher.PublishEvent(ctx, event)
 
     return photo, nil
 }
@@ -449,7 +454,7 @@ func (r *PostgresPostRepository) FindByRadiusWithinOrg(
 - `post.created` → Notifications (confirmation), Media AI (photo analysis), Matcher (initial matching)
 - `post.status_updated` → Notifications (status alerts), Matcher (availability changes)
 - `post.resolved` → Notifications (success stories), Analytics (completion tracking)
-- `photo.uploaded` → Media AI (computer vision analysis)
+- `post.photo.added` → Media AI (computer vision analysis)
 
 **External Dependencies**:
 - **Google Cloud Storage**: Photo storage with global CDN distribution

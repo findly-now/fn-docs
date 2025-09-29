@@ -225,7 +225,7 @@ make e2e-test             # Run E2E tests
 | **System Architecture** | Domain boundaries, service interactions, patterns | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | **Cloud Setup** | GKE deployment, environment configuration | [CLOUD-SETUP.md](./CLOUD-SETUP.md) |
 | **Code Standards** | DDD patterns, coding guidelines, best practices | [STANDARDS.md](./STANDARDS.md) |
-| **Service Interactions** | Event flows, API contracts, integration patterns | [service-interactions-overview.md](./service-interactions-overview.md) |
+| **Service Interactions** | Event flows, API contracts, integration patterns | [service-interactions-overview.md](./DOMAIN-INTERACTIONS) |
 
 ### Service-Specific Documentation
 

@@ -119,7 +119,7 @@ defmodule FnNotifications.Application.EventHandlers.PostsEventProcessor do
     [
       hosts: Application.get_env(:fn_notifications, :kafka_hosts),
       group_id: "fn-notifications-posts-consumer",
-      topics: ["fn-posts.post.created", "fn-posts.post.matched", "fn-posts.post.claimed"],
+      topics: ["posts.events"],  # Handles post.created, post.updated, post.resolved, post.deleted
       offset_reset_policy: :earliest,
       max_bytes: 1_000_000,
       max_wait_time: 5_000
@@ -127,6 +127,65 @@ defmodule FnNotifications.Application.EventHandlers.PostsEventProcessor do
   end
 end
 ```
+
+### Matcher Event Processing
+
+**Critical Addition**: The notification service also includes a dedicated `MatcherEventProcessor` for handling intelligent matching events from the fn-matcher service:
+
+```elixir
+defmodule FnNotifications.Application.EventHandlers.MatcherEventProcessor do
+  use Broadway
+
+  def start_link(_opts) do
+    Broadway.start_link(__MODULE__,
+      name: __MODULE__,
+      producer: [
+        module: {BroadwayKafka.Producer, matcher_kafka_config()},
+        stages: 1
+      ],
+      processors: [
+        default: [stages: 10, max_demand: 5]  # 10 concurrent processors
+      ],
+      batchers: [
+        default: [batch_size: 20, batch_timeout: 1000]
+      ]
+    )
+  end
+
+  def handle_message(_processor, message, _context) do
+    external_event = Jason.decode!(message.data.raw_data)
+
+    # Translate matcher events through anti-corruption layer
+    case EventTranslator.translate_matcher_event(external_event) do
+      {:ok, notification_commands} ->
+        # Process multiple notifications for match events (both parties)
+        Enum.each(notification_commands, &NotificationService.send_notification/1)
+        message
+      {:error, reason} ->
+        Logger.warning("Failed to translate matcher event", reason: reason)
+        Broadway.Message.failed(message, reason)
+    end
+  end
+
+  defp matcher_kafka_config do
+    [
+      hosts: Application.get_env(:fn_notifications, :kafka_hosts),
+      group_id: "fn-notifications-matcher-consumer",
+      topics: ["posts.matching"],  # Events from fn-matcher service
+      offset_reset_policy: :earliest,
+      max_bytes: 1_000_000,
+      max_wait_time: 5_000
+    ]
+  end
+end
+```
+
+**Matcher Events Handled**:
+- **`post.matched`**: Notifies both reporter and matcher via email about potential match
+- **`post.claimed`**: Sends urgent SMS to reporter, confirmation email to claimer
+- **`match.expired`**: Notifies both parties via email when match expires without action
+
+**Business Impact**: These events enable the core Lost & Found reunification workflow - without them, users would never be notified of critical matching activities.
 
 ### 3. Multi-Channel Delivery with Adapter Pattern
 

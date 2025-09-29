@@ -137,7 +137,7 @@ flowchart TD
 
     E --> F{Notification Type}
     F -->|post_confirmation| G[📧 Email Only]
-    F -->|match_detected| H[📧📱 Email + SMS]
+    F -->|post.matched| H[📧📱 Email + SMS]
     F -->|urgent_claim| I[📧📱💬 All Channels]
     F -->|post_resolved| J[📧 Email Only]
 
@@ -445,7 +445,7 @@ flowchart TD
 
     E --> F{Notification Type}
     F -->|post_confirmation| G[📧 Email Primary Channel]
-    F -->|match_detected| H[📧📱 Email + SMS if enabled]
+    F -->|post.matched| H[📧📱 Email + SMS if enabled]
     F -->|urgent_claim| I[📧📱💬 All Available Channels]
     F -->|post_resolved| J[📧 Email Success Story]
     F -->|welcome| K[📧 Email Onboarding]
@@ -604,12 +604,12 @@ graph TD
 graph TD
     subgraph "External Domain Events"
         A[📝 fn-posts Events] --> B[post.created]
-        A --> C[post.matched]
-        A --> D[post.claimed]
         A --> E[post.resolved]
+        A --> AA[post.updated]
+        A --> BB[post.deleted]
 
-        F[🎯 fn-matcher Events] --> G[match.detected]
-        F --> H[match.confirmed]
+        F[🎯 fn-matcher Events] --> C[post.matched]
+        F --> D[post.claimed]
         F --> I[match.expired]
 
         J[👤 fn-users Events] --> K[user.registered]
@@ -637,7 +637,7 @@ graph TD
         O --> X[🚨 urgent_claim notification]
         O --> Y[✅ success_story notification]
 
-        P --> Z[🔍 match_detected notification]
+        P --> Z[🔍 post.matched notification]
         P --> AA[⏰ match_expired notification]
 
         Q --> BB[👋 welcome notification]

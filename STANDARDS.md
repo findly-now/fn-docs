@@ -137,6 +137,95 @@ defmodule FnNotifications.Application.AntiCorruption.EventTranslator do
 end
 ```
 
+### Kafka Topic Naming Conventions
+
+**Standard**: Use domain-based topic naming with consistent patterns across all services.
+
+**Current Topic Naming Pattern**:
+```
+{domain}.{context}
+```
+
+**Implemented Topics**:
+- **`posts.events`**: All post lifecycle events (created, updated, resolved, deleted)
+- **`posts.matching`**: Matching-related events (matched, claimed, expired)
+- **`users.events`**: User and organization events (registered, staff_added)
+- **`media-ai.enrichment`**: AI processing events (enhanced)
+
+**Topic Configuration Examples**:
+```bash
+# Environment variables for topic configuration
+KAFKA_POSTS_TOPIC=posts.events
+KAFKA_MATCHER_TOPIC=posts.matching
+KAFKA_USERS_TOPIC=users.events
+KAFKA_MEDIA_AI_TOPIC=media-ai.enrichment
+```
+
+**Event Publishing Standards**:
+```go
+// Go example (fn-posts)
+func (s *EventPublisher) PublishPostCreated(post *Post) error {
+    event := PostCreatedEvent{
+        ID:        uuid.New().String(),
+        EventType: "post.created",
+        PostID:    post.ID(),
+        Timestamp: time.Now(),
+    }
+
+    return s.kafkaProducer.Publish("posts.events", event)
+}
+```
+
+```rust
+// Rust example (fn-matcher)
+impl KafkaEventProducer {
+    pub async fn publish_post_matched(&self, match_data: MatchData) -> Result<()> {
+        let event = PostMatchedEvent {
+            id: Uuid::new_v4().to_string(),
+            event_type: "post.matched".to_string(),
+            data: match_data,
+        };
+
+        self.publish_event(&self.config.topics.posts_matching, &event).await
+    }
+}
+```
+
+```elixir
+# Elixir example (fn-notifications)
+defmodule PostsEventProcessor do
+  def start_link(_opts) do
+    Broadway.start_link(__MODULE__,
+      producer: [
+        module: {BroadwayKafka.Producer,
+          topics: ["posts.events"],  # Consumes from posts domain
+          group_id: "fn-notifications-posts"
+        }
+      ]
+    )
+  end
+end
+
+defmodule MatcherEventProcessor do
+  def start_link(_opts) do
+    Broadway.start_link(__MODULE__,
+      producer: [
+        module: {BroadwayKafka.Producer,
+          topics: ["posts.matching"],  # Consumes from matcher domain
+          group_id: "fn-notifications-matcher"
+        }
+      ]
+    )
+  end
+end
+```
+
+**Best Practices**:
+- **Consistent naming**: Use lowercase with dots for hierarchy
+- **Domain alignment**: Topic names reflect the owning domain
+- **Event grouping**: Related events share topic (e.g., all post lifecycle events in `posts.events`)
+- **Specialized topics**: Separate topics for different event patterns (e.g., `posts.matching` for match-specific events)
+
 ## Testing Strategy
 
 ### E2E Tests Only

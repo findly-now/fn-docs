@@ -47,7 +47,7 @@ graph TB
         K2[📨 post.matched]
         K3[📨 post.claimed]
         K4[📨 post.resolved]
-        K5[📨 photo.uploaded]
+        K5[📨 post.photo.added]
         K6[📨 user.registered]
     end
 
@@ -206,7 +206,7 @@ graph TD
         ET5[📨 post.enhanced]
         ET6[📨 user.registered]
         ET7[📨 match.expired]
-        ET8[📨 photo.uploaded]
+        ET8[📨 post.photo.added]
     end
 
     subgraph "Event Consumers"
