@@ -1,5 +1,7 @@
 # Findly Now Service Interactions Overview
 
+**Document Ownership**: This document OWNS cross-domain interaction patterns, event flow diagrams, and service communication specifications.
+
 **Comprehensive visual guide to all service interactions, event flows, and data relationships across the Findly Now ecosystem.**
 
 ## Complete System Architecture
@@ -43,12 +45,10 @@ graph TB
     end
 
     subgraph "Event Streaming (Kafka)"
-        K1[📨 post.created]
-        K2[📨 post.matched]
-        K3[📨 post.claimed]
-        K4[📨 post.resolved]
-        K5[📨 post.photo.added]
-        K6[📨 user.registered]
+        K1[📨 posts.events]
+        K2[📨 posts.enhancements]
+        K3[📨 posts.matching]
+        K4[📨 notifications.events]
     end
 
     subgraph "External Services"
@@ -68,7 +68,6 @@ graph TB
     P1 --> P4
 
     P4 --> K1
-    P4 --> K5
 
     K1 --> N1
     K1 --> A1
@@ -77,8 +76,6 @@ graph TB
     K2 --> N1
     K3 --> N1
     K4 --> N1
-    K5 --> A1
-    K6 --> N1
 
     M1 --> K2
     M4 --> K3
@@ -126,34 +123,34 @@ sequenceDiagram
     User->>Mobile: Report lost iPhone
     Mobile->>Posts: POST /api/posts (photos + location)
     Posts->>Posts: Store post + upload photos
-    Posts->>Kafka: Publish post.created event
+    Posts->>Kafka: Publish posts.events
     Posts-->>Mobile: Post created successfully
     Mobile-->>User: "Your item is reported!"
 
     %% Immediate Processing
     par Confirmation Notification
-        Kafka->>Notifications: post.created event
+        Kafka->>Notifications: posts.events
         Notifications->>Notifications: Send confirmation email
         Notifications-->>Dashboard: Update delivery metrics
     and Photo Analysis
-        Kafka->>MediaAI: post.created event
+        Kafka->>MediaAI: posts.events
         MediaAI->>MediaAI: Analyze photos with AI
         MediaAI->>MediaAI: Extract tags & metadata
-        MediaAI->>Kafka: Publish post.enhanced event
+        MediaAI->>Kafka: Publish posts.enhancements
     and Initial Matching
-        Kafka->>Matcher: post.created event
+        Kafka->>Matcher: posts.events
         Matcher->>Matcher: Search for potential matches
         Matcher->>Matcher: Calculate confidence scores
     end
 
     %% Enhanced Matching
-    Kafka->>Matcher: post.enhanced event (from MediaAI)
+    Kafka->>Matcher: posts.enhancements (from MediaAI)
     Matcher->>Matcher: Re-run matching with AI tags
     Matcher->>Matcher: Found high-confidence match!
-    Matcher->>Kafka: Publish post.matched event
+    Matcher->>Kafka: Publish posts.matching
 
     %% Match Notification
-    Kafka->>Notifications: post.matched event
+    Kafka->>Notifications: posts.matching
     Notifications->>Notifications: Send match alert (email + SMS)
     Notifications-->>Dashboard: Update match metrics
     Notifications-->>User: "Possible match found!"
@@ -162,10 +159,10 @@ sequenceDiagram
     User->>Mobile: "This looks like my phone!"
     Mobile->>Matcher: POST /api/matches/{id}/claim
     Matcher->>Matcher: Initiate claiming process
-    Matcher->>Kafka: Publish post.claimed event
+    Matcher->>Kafka: Publish posts.matching
 
     %% Urgent Claim Notification
-    Kafka->>Notifications: post.claimed event
+    Kafka->>Notifications: posts.matching
     Notifications->>Notifications: Send URGENT notifications (all channels)
     Notifications-->>Dashboard: Critical alert
     Notifications-->>User: "URGENT: Someone claims your item!"
@@ -173,10 +170,10 @@ sequenceDiagram
     %% Successful Recovery
     User->>Mobile: "Item recovered successfully!"
     Mobile->>Posts: PATCH /api/posts/{id}/status (resolved)
-    Posts->>Kafka: Publish post.resolved event
+    Posts->>Kafka: Publish posts.events
 
     %% Success Story
-    Kafka->>Notifications: post.resolved event
+    Kafka->>Notifications: posts.events
     Notifications->>Notifications: Send success story email
     Notifications-->>Dashboard: Success metrics
     Notifications-->>User: "Congratulations on recovery!"
@@ -199,14 +196,11 @@ graph TD
     end
 
     subgraph "Event Topics"
-        ET1[📨 post.created]
-        ET2[📨 post.matched]
-        ET3[📨 post.claimed]
-        ET4[📨 post.resolved]
-        ET5[📨 post.enhanced]
-        ET6[📨 user.registered]
-        ET7[📨 match.expired]
-        ET8[📨 post.photo.added]
+        ET1[📨 posts.events]
+        ET2[📨 posts.matching]
+        ET3[📨 posts.enhancements]
+        ET4[📨 notifications.events]
+        ET5[📨 users.events]
     end
 
     subgraph "Event Consumers"
@@ -218,13 +212,9 @@ graph TD
 
     %% Publishers to Topics
     EP1 --> ET1
-    EP1 --> ET4
-    EP1 --> ET8
     EP2 --> ET2
-    EP2 --> ET3
-    EP2 --> ET7
-    EP3 --> ET5
-    EP4 --> ET6
+    EP3 --> ET3
+    EP4 --> ET5
 
     %% Topics to Consumers
     ET1 --> EC1
@@ -235,23 +225,14 @@ graph TD
     ET2 --> EC1
     ET2 --> EC4
 
-    ET3 --> EC1
+    ET3 --> EC2
     ET3 --> EC4
 
     ET4 --> EC1
     ET4 --> EC4
 
-    ET5 --> EC2
+    ET5 --> EC1
     ET5 --> EC4
-
-    ET6 --> EC1
-    ET6 --> EC4
-
-    ET7 --> EC1
-    ET7 --> EC4
-
-    ET8 --> EC3
-    ET8 --> EC4
 
     style EP1 fill:#e1f5fe
     style EP2 fill:#fff3e0
@@ -420,11 +401,11 @@ sequenceDiagram
     Posts->>Posts: Upload photos to GCS
     Posts->>Posts: COMMIT local transaction
 
-    Posts->>Kafka: Publish post.created event
+    Posts->>Kafka: Publish posts.events
     Note right of Kafka: Event becomes source of truth
 
     par Parallel Processing (Compensating Actions Available)
-        Kafka->>Notifications: Consume post.created
+        Kafka->>Notifications: Consume posts.events
         Notifications->>Notifications: Send confirmation email
         alt Email delivery fails
             Notifications->>Kafka: Publish notification.failed
@@ -432,23 +413,23 @@ sequenceDiagram
         end
 
     and
-        Kafka->>MediaAI: Consume post.created
+        Kafka->>MediaAI: Consume posts.events
         MediaAI->>MediaAI: Process photos with AI
         alt AI processing fails
             MediaAI->>Kafka: Publish ai.processing.failed
             Note right of MediaAI: Fallback to basic metadata
         else AI processing succeeds
-            MediaAI->>Kafka: Publish post.enhanced
+            MediaAI->>Kafka: Publish posts.enhancements
         end
 
     and
-        Kafka->>Matcher: Consume post.created
+        Kafka->>Matcher: Consume posts.events
         Matcher->>Matcher: Run initial matching
         alt Matching fails
             Matcher->>Kafka: Publish matching.failed
             Note right of Matcher: Retry with reduced criteria
         else Match found
-            Matcher->>Kafka: Publish post.matched
+            Matcher->>Kafka: Publish posts.matching
         end
     end
 

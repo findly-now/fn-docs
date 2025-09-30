@@ -42,11 +42,11 @@ KAFKA_CONSUMER_GROUP_ID="service-specific-group-id"
 Services use these variables to configure topic names:
 
 ```bash
-# Core Event Topics
-KAFKA_POSTS_TOPIC="posts.events"              # Posts domain events
-KAFKA_ENRICHMENT_TOPIC="media-ai.enrichment"  # Media AI enrichment events
-KAFKA_MATCHING_TOPIC="posts.matching"         # Matcher events
-KAFKA_USERS_TOPIC="users.lifecycle"           # User lifecycle events
+# Core Event Topics (Standardized)
+KAFKA_POSTS_TOPIC="posts.events"              # All posts domain events
+KAFKA_ENRICHMENT_TOPIC="posts.enhancements"   # AI enhanced posts
+KAFKA_MATCHING_TOPIC="posts.matching"         # Matching results
+KAFKA_NOTIFICATION_TOPIC="notifications.events" # Notification events
 ```
 
 ## Service-Specific Configuration
@@ -117,8 +117,7 @@ KAFKA_SASL_PASSWORD="your-confluent-api-secret"
 # Topic Subscriptions
 KAFKA_POSTS_TOPIC="posts.events"
 KAFKA_MATCHER_TOPIC="posts.matching"
-KAFKA_ENRICHMENT_TOPIC="media-ai.enrichment"
-KAFKA_USERS_TOPIC="users.lifecycle"
+KAFKA_ENRICHMENT_TOPIC="posts.enhancements"
 
 # Notification Providers
 SENDGRID_API_KEY="your-sendgrid-api-key"
@@ -166,8 +165,8 @@ KAFKA_SASL_USERNAME="your-confluent-api-key"
 KAFKA_SASL_PASSWORD="your-confluent-api-secret"
 
 # Topic Configuration
-KAFKA_CONSUMER_TOPICS="posts.events"           # Input: Posts events
-KAFKA_POST_ENHANCED_TOPIC="media-ai.enrichment" # Output: Enhanced posts
+KAFKA_CONSUMER_TOPICS='["posts.events"]'      # Input: Posts events (JSON array)
+KAFKA_POST_ENHANCED_TOPIC="posts.enhancements"  # Output: Enhanced posts
 
 # Google Cloud Storage
 GCS_BUCKET_NAME="your-gcs-bucket"
@@ -219,9 +218,9 @@ KAFKA_SASL_USERNAME="your-confluent-api-key"
 KAFKA_SASL_PASSWORD="your-confluent-api-secret"
 
 # Topic Configuration
-KAFKA_TOPICS_POSTS="posts.events"           # Input: Posts events
-KAFKA_TOPICS_ENRICHMENT="media-ai.enrichment" # Input: Enhanced posts
-KAFKA_TOPICS_MATCHING="posts.matching"      # Output: Matching events
+KAFKA_CONSUMER_TOPICS="posts.events,posts.enhancements" # Input topics
+KAFKA_PRODUCER_TOPIC_MATCHING="posts.matching"          # Output: Matching events
+KAFKA_PRODUCER_TOPIC_NOTIFICATIONS="notifications.events" # Output: Notifications
 
 # Algorithm Configuration (Configurable Weights)
 MATCHING_LOCATION_WEIGHT="0.3"   # Weight for location similarity (0.0-1.0)
@@ -302,7 +301,7 @@ DATABASE_URL="***"
 
 ## Environment-Specific Configurations
 
-### Development Environment
+### Development Environment (Local Docker)
 ```bash
 # Development-specific overrides
 GIN_MODE="debug"
@@ -310,6 +309,14 @@ LOG_LEVEL="debug"
 PHX_SERVER="true"
 RUST_LOG="debug"
 GPU_ENABLED="false"
+
+# Local Kafka configuration (no authentication)
+KAFKA_BOOTSTRAP_SERVERS="kafka:29092"
+KAFKA_SECURITY_PROTOCOL="PLAINTEXT"
+# No SASL credentials needed for local development
+
+# Local database connections
+DATABASE_URL="postgresql://service_user:service_password@postgres:5432/service_db"
 ```
 
 ### Staging Environment
@@ -370,10 +377,10 @@ gsutil ls gs://$GCS_BUCKET_NAME
 ### Breaking Changes in Recent Updates
 
 #### Kafka Configuration Standardization
-- **fn-media-ai**: Changed `KAFKA_BROKERS` to `KAFKA_BOOTSTRAP_SERVERS`
-- **fn-media-ai**: Added `KAFKA_SASL_USERNAME` and `KAFKA_SASL_PASSWORD` requirements
-- **fn-matcher**: Standardized topic configuration to use `KAFKA_TOPICS_*` prefixes
-- **All Services**: Standardized topic names to `posts.events`, `media-ai.enrichment`, `posts.matching`
+- **All Services**: Changed `KAFKA_BROKERS` to `KAFKA_BOOTSTRAP_SERVERS`
+- **fn-media-ai**: `KAFKA_CONSUMER_TOPICS` now requires JSON array format
+- **fn-matcher**: Updated to use consolidated consumer topics configuration
+- **All Services**: Standardized topic names to `posts.events`, `posts.enhancements`, `posts.matching`, `notifications.events`
 
 #### Algorithm Configuration
 - **fn-matcher**: Added configurable algorithm weights via `MATCHING_*_WEIGHT` variables

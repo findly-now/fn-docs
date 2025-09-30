@@ -1,5 +1,7 @@
 # Local Development Guide - Findly Now Platform
 
+**Document Ownership**: This document OWNS local development procedures, complete ecosystem setup, and development environment configuration.
+
 This comprehensive guide helps you run the complete Findly Now platform locally with all microservices and infrastructure. Perfect for development, testing, and understanding the full system.
 
 ## 🎯 Quick Start
@@ -21,12 +23,12 @@ make open-health
 ```
 
 **Access Points:**
-- **Health Dashboard**: http://localhost:8082
-- **Kafka UI**: http://localhost:8081
-- **Posts API**: http://localhost:8080/api/v1
+- **Health Dashboard**: http://localhost:8081
+- **Kafka UI**: http://localhost:8080
+- **Posts API**: http://localhost:8001/api/v1
 - **Notifications**: http://localhost:4000
 - **Media AI API**: http://localhost:8000/docs
-- **Matcher API**: http://localhost:3000/api/v1
+- **Matcher API**: http://localhost:8003/api/v1
 
 ## 📋 Prerequisites
 
@@ -62,12 +64,12 @@ The local environment replicates the complete production architecture:
 │                        Local Environment                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  🖥️  Web Interfaces                                             │
-│  • Health Dashboard (8082)  • Kafka UI (8081)                  │
+│  • Health Dashboard (8081)  • Kafka UI (8080)                  │
 │  • MinIO Console (9001)     • Service APIs                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  🚀 Microservices                                               │
-│  • fn-posts (8080)          • fn-notifications (4000)          │
-│  • fn-media-ai (8000)       • fn-matcher (3000)                │
+│  • fn-posts (8001)          • fn-notifications (4000)          │
+│  • fn-media-ai (8000)       • fn-matcher (8003)                │
 ├─────────────────────────────────────────────────────────────────┤
 │  🏗️  Infrastructure                                             │
 │  • PostgreSQL (5432)        • Kafka (9092)                     │
@@ -184,7 +186,7 @@ To check the current status of your local development environment:
 
 ```bash
 # Check all container status
-cd fn-infra && docker compose -f local/docker-compose.yml ps
+cd fn-infra/local && docker compose ps
 
 # Quick status overview
 make local-all-status
@@ -193,27 +195,27 @@ make local-all-status
 make local-all-health
 
 # Individual service health
-curl http://localhost:8080/health      # Posts
+curl http://localhost:8001/health      # Posts
 curl http://localhost:4000/api/health  # Notifications
-curl http://localhost:8000/health      # Media AI
-curl http://localhost:3000/health      # Matcher
+curl http://localhost:8000/api/v1/health # Media AI
+curl http://localhost:8003/health      # Matcher
 ```
 
 ### Infrastructure Services Status
 
 All infrastructure services should be properly configured and healthy:
-- **PostgreSQL**: `findly-postgres:5432` with databases: `posts_db`, `notifications_db`, `matcher_db`
-- **Kafka**: `findly-kafka:29092` in KRaft mode (no Zookeeper)
-- **Redis**: `findly-redis:6379` for caching
-- **MinIO**: `findly-minio:9000` for S3-compatible storage
+- **PostgreSQL**: `postgres:5432` with databases: `posts_db`, `notifications_db`, `matcher_db`, `media_ai_db`
+- **Kafka**: `kafka:29092` in KRaft mode (no Zookeeper)
+- **Redis**: `redis:6379` for caching
+- **MinIO**: `minio:9000` for S3-compatible storage
 
 ### Service Connections
 
 All services now use container networking instead of localhost:
-- **Database**: `postgresql://service_user:service_password@findly-postgres:5432/service_db`
-- **Kafka**: `findly-kafka:29092`
-- **Redis**: `findly-redis:6379`
-- **MinIO**: `findly-minio:9000`
+- **Database**: `postgresql://service_user:service_password@postgres:5432/service_db`
+- **Kafka**: `kafka:29092`
+- **Redis**: `redis:6379`
+- **MinIO**: `minio:9000`
 
 ### Viewing Logs
 
@@ -233,7 +235,7 @@ make logs-kafka
 make logs-postgres
 
 # Individual service logs with Docker
-docker logs findly-[service] --tail 50 -f
+docker logs [service] --tail 50 -f
 ```
 
 ### Web Interfaces
@@ -308,9 +310,9 @@ curl -X POST http://localhost:8080/api/v1/posts \
 ```
 
 2. **Monitor Event Propagation:**
-   - Visit Kafka UI: http://localhost:8081
-   - Check `post.created` topic for the event
-   - Watch for `post.enhanced` event from Media AI
+   - Visit Kafka UI: http://localhost:8080
+   - Check `posts.events` topic for the event
+   - Watch for `posts.enhancements` event from Media AI
    - Look for potential matches in Matcher
 
 3. **Create Matching Found Post:**
@@ -339,17 +341,17 @@ curl http://localhost:3000/api/v1/matches
 
 ```bash
 # Posts API
-curl http://localhost:8080/api/v1/posts
-curl http://localhost:8080/api/v1/posts/{id}
+curl http://localhost:8001/api/v1/posts
+curl http://localhost:8001/api/v1/posts/{id}
 
 # Media AI API
-curl http://localhost:8000/api/v1/models/status
+curl http://localhost:8000/api/v1/health
 
 # Matcher API
-curl http://localhost:3000/api/v1/matches
+curl http://localhost:8003/api/v1/matches
 
 # Notifications API
-curl http://localhost:4000/api/notifications
+curl http://localhost:4000/api/health
 ```
 
 ## 🔧 Database Access
@@ -360,15 +362,16 @@ Each service has its own database for domain isolation:
 
 ```bash
 # Quick database shell
-make local-shell-postgres
+docker exec -it postgres psql -U postgres
 
 # Connect to specific databases
 psql postgresql://postgres:postgres@localhost:5432/posts_db
 psql postgresql://postgres:postgres@localhost:5432/notifications_db
 psql postgresql://postgres:postgres@localhost:5432/matcher_db
+psql postgresql://postgres:postgres@localhost:5432/media_ai_db
 
 # Database access from Docker
-docker exec -it findly-postgres psql -U postgres
+docker exec -it postgres psql -U postgres
 ```
 
 ### Database Users & Permissions
@@ -411,28 +414,28 @@ Access Kafka UI at http://localhost:8081 to monitor:
 
 | Topic | Purpose | Producers | Consumers |
 |-------|---------|-----------|-----------|
-| `post.created` | New posts | fn-posts | fn-media-ai, fn-matcher |
-| `post.enhanced` | AI analysis done | fn-media-ai | fn-matcher |
-| `post.matched` | Matches found | fn-matcher | fn-notifications |
-| `notification.sent` | Notifications sent | fn-notifications | Analytics |
+| `posts.events` | All posts events | fn-posts | fn-media-ai, fn-matcher, fn-notifications |
+| `posts.enhancements` | AI analysis results | fn-media-ai | fn-matcher |
+| `posts.matching` | Matching results | fn-matcher | fn-notifications |
+| `notifications.events` | Notification events | fn-notifications | Analytics |
 
 ### Manual Event Testing
 
 ```bash
 # Get into Kafka container
-make local-shell-kafka
+docker exec -it kafka bash
 
 # List topics
 kafka-topics --bootstrap-server localhost:9092 --list
 
 # Watch events in real-time
-kafka-console-consumer --bootstrap-server localhost:9092 --topic post.created --from-beginning
+kafka-console-consumer --bootstrap-server localhost:9092 --topic posts.events --from-beginning
 
 # Send test event
-kafka-console-producer --bootstrap-server localhost:9092 --topic post.created
+kafka-console-producer --bootstrap-server localhost:9092 --topic posts.events
 
 # Kafka topics with Docker
-docker exec findly-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
 ```
 
 ## 💾 Object Storage (MinIO)
@@ -453,7 +456,7 @@ docker exec findly-kafka kafka-topics --list --bootstrap-server localhost:9092
 
 ```bash
 # Using MinIO client in container
-docker exec -it findly-minio mc ls myminio/
+docker exec -it minio mc ls minio/
 
 # Using AWS CLI (if installed)
 aws --endpoint-url=http://localhost:9000 \
@@ -530,8 +533,8 @@ docker-compose -f fn-infra/local/docker-compose.full.yml build fn-posts
 
 #### fn-posts ✅ HEALTHY
 - **Status**: Working properly with container database connections
-- **Database**: Successfully connecting to `posts_db` via `findly-postgres:5432`
-- **Health Check**: `curl http://localhost:8080/health` returns 200 OK
+- **Database**: Successfully connecting to `posts_db` via `postgres:5432`
+- **Health Check**: `curl http://localhost:8001/health` returns 200 OK
 
 #### fn-notifications 🔍 POTENTIAL ISSUES
 - **Potential Issue**: Compilation issues with Elixir dependencies
@@ -581,53 +584,54 @@ make local-all-up
 docker logs findly-[service-name] --tail 50
 
 # Common fixes:
-# 1. Environment file issues
-cp fn-infra/local/env/fn-[service].env fn-[service]/.env
+# 1. Check environment files exist
+ls fn-[service]/.env
 
 # 2. Permission issues
 sudo chown -R $USER:$USER fn-[service]/
 
 # 3. Port conflicts
-lsof -i :8080  # Check if port is in use
+lsof -i :8001  # Check if posts port is in use
 ```
 
 #### Database Connection Issues
 
 ```bash
 # Check PostgreSQL container
-docker logs findly-postgres
+docker logs postgres
 
 # Verify database is ready
-make local-shell-postgres
+docker exec -it postgres psql -U postgres
 
 # Reset databases
-make local-all-clean  # WARNING: Deletes all data
-make local-all-up
+cd fn-infra/local
+docker compose down -v  # WARNING: Deletes all data
+docker compose up -d
 
 # Test database connection from container
-docker exec findly-postgres psql -U postgres -c "\l"
+docker exec postgres psql -U postgres -c "\l"
 
 # Verify service .env files use container names
-grep DATABASE_URL fn-*/env | grep findly-postgres
+grep DATABASE_URL fn-*/.env | grep postgres
 ```
 
 #### Kafka/Event Issues
 
 ```bash
 # Check Kafka logs
-make logs-kafka
+docker logs kafka
 
 # List topics
-docker exec findly-kafka kafka-topics --bootstrap-server localhost:9092 --list
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # Check consumer groups
-docker exec findly-kafka kafka-consumer-groups --bootstrap-server localhost:9092 --list
+docker exec kafka kafka-consumer-groups --bootstrap-server localhost:9092 --list
 
 # Verify topics exist
-docker exec findly-kafka kafka-topics --list --bootstrap-server localhost:9092
+docker exec kafka kafka-topics --list --bootstrap-server localhost:9092
 
 # Check service .env files
-grep KAFKA_BROKERS fn-*/.env | grep findly-kafka
+grep KAFKA_BOOTSTRAP_SERVERS fn-*/.env | grep kafka
 ```
 
 #### Performance Issues
@@ -654,25 +658,25 @@ netstat -an | grep LISTEN | grep -E "(5432|9092|6379|9000)"
 
 ```bash
 # Check service logs
-make logs-[service-name]
+docker logs [service-name]
 
 # Get into service container
-make local-shell-[service-name]
+docker exec -it [service-name] bash
 
 # Restart specific service
-docker-compose -f fn-infra/local/docker-compose.full.yml restart fn-posts
+cd fn-infra/local && docker compose restart fn-posts
 ```
 
 ### When Things Break
 
 ```bash
 # Nuclear option - complete reset
-cd fn-infra
-make local-clean  # WARNING: Deletes all data
-make local-up
+cd fn-infra/local
+docker compose down -v  # WARNING: Deletes all data
+docker compose up -d
 
 # Gentler option - restart services
-docker compose -f local/docker-compose.yml restart
+cd fn-infra/local && docker compose restart
 ```
 
 ### Debug Commands
@@ -714,7 +718,7 @@ make local-all-down
 make local-all-clean
 
 # Stop individual services
-docker-compose -f fn-infra/local/docker-compose.full.yml stop fn-posts
+cd fn-infra/local && docker compose stop fn-posts
 ```
 
 ### Cleanup
@@ -758,15 +762,15 @@ docker volume prune -f
 ## 🌐 Access URLs
 
 ### Application Services
-- **fn-posts**: http://localhost:8080
+- **fn-posts**: http://localhost:8001
 - **fn-notifications**: http://localhost:4000
-- **fn-matcher**: http://localhost:3000
+- **fn-matcher**: http://localhost:8003
 - **fn-media-ai**: http://localhost:8000
 
 ### Infrastructure UIs
-- **Kafka UI**: http://localhost:8081 (monitoring)
-- **MinIO Console**: http://localhost:9001 (admin/admin123)
-- **Health Dashboard**: http://localhost:8082
+- **Kafka UI**: http://localhost:8080 (monitoring)
+- **MinIO Console**: http://localhost:9001 (findly/findly123)
+- **Health Dashboard**: http://localhost:8081
 
 ### Direct Infrastructure Access
 - **PostgreSQL**: localhost:5432
@@ -777,33 +781,32 @@ docker volume prune -f
 ### Service URLs (Container Networking)
 
 Services communicate using container names:
-- **fn-posts**: `http://findly-posts:8080`
-- **fn-notifications**: `http://findly-notifications:4000`
-- **fn-matcher**: `http://findly-matcher:3000`
-- **fn-media-ai**: `http://findly-media-ai:8000`
+- **fn-posts**: `http://fn-posts:8080`
+- **fn-notifications**: `http://fn-notifications:4000`
+- **fn-matcher**: `http://fn-matcher:8003`
+- **fn-media-ai**: `http://fn-media-ai:8000`
 
 ## 📁 Environment Configuration
 
 ### Environment Files (Container Networking)
-- `fn-posts/.env` → Uses `findly-postgres:5432`
-- `fn-notifications/.env` → Uses `findly-postgres:5432`
-- `fn-matcher/.env` → Uses `findly-postgres:5432`
-- `fn-media-ai/.env` → Uses `findly-kafka:29092`, `findly-redis:6379`
+- `fn-posts/.env` → Uses `postgres:5432`
+- `fn-notifications/.env` → Uses `postgres:5432`
+- `fn-matcher/.env` → Uses `postgres:5432`
+- `fn-media-ai/.env` → Uses `kafka:29092`, `redis:6379`
 
 ### Infrastructure Configuration
-- `fn-infra/local/docker-compose.yml` → Infrastructure services
+- `fn-infra/local/docker-compose.yml` → All services and infrastructure
 - `fn-infra/local/init-scripts/01-init-databases.sql` → Database setup
-- `fn-infra/local/env/` → Pre-configured environment templates
 
 ## ✅ Success Criteria
 
 The local development environment is considered ready when:
 
-1. **Infrastructure**: All containers healthy (`docker ps` shows healthy status)
+1. **Infrastructure**: All containers healthy (`docker compose ps` shows healthy status)
 2. **Networking**: Services use container names (no localhost connections)
 3. **Databases**: Each service connects to its dedicated database
-4. **fn-posts**: Returns 200 from `curl http://localhost:8080/health`
-5. **Environment**: All .env files copied from `fn-infra/local/env/`
+4. **fn-posts**: Returns 200 from `curl http://localhost:8001/health`
+5. **Environment**: All .env files properly configured
 
 ## 📚 Next Steps
 

@@ -461,7 +461,7 @@ services:
 - **Query timeouts** to prevent hanging
 
 ### API Response Times
-- **Posts creation**: <15 seconds end-to-end
+- **Posts creation**: <5 seconds end-to-end
 - **Geospatial queries**: <200ms
 - **Notification delivery**: <5 seconds
 - **Health checks**: <100ms

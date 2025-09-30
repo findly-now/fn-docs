@@ -13,10 +13,10 @@ Before diving into specific troubleshooting sections, run through this quick che
 ### 1. Service Health Check
 ```bash
 # Check all service health endpoints
-curl -f http://fn-posts:8080/health || echo "Posts service unhealthy"
-curl -f http://fn-notifications:4000/health || echo "Notifications service unhealthy"
-curl -f http://fn-media-ai:8000/health || echo "Media AI service unhealthy"
-curl -f http://fn-matcher:3000/health || echo "Matcher service unhealthy"
+curl -f http://localhost:8001/health || echo "Posts service unhealthy"
+curl -f http://localhost:4000/api/health || echo "Notifications service unhealthy"
+curl -f http://localhost:8000/api/v1/health || echo "Media AI service unhealthy"
+curl -f http://localhost:8003/health || echo "Matcher service unhealthy"
 ```
 
 ### 2. Kafka Connectivity Check
@@ -81,8 +81,8 @@ sasl.mechanism=PLAIN
 sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="${KAFKA_SASL_USERNAME}" password="${KAFKA_SASL_PASSWORD}";
 EOF
 
-# 3. For fn-media-ai service (common issue), ensure variables match expected names
-# Change from KAFKA_BROKERS to KAFKA_BOOTSTRAP_SERVERS
+# 3. For fn-media-ai service, ensure KAFKA_CONSUMER_TOPICS uses JSON array format
+# KAFKA_CONSUMER_TOPICS='["posts.events"]'
 ```
 
 #### 2. Topic Not Found Errors
@@ -123,10 +123,11 @@ kafka-topics --bootstrap-server $KAFKA_BOOTSTRAP_SERVERS \
   --partitions 3 --replication-factor 3
 
 # 2. Verify topic names in environment variables match actual topics
-echo "Expected topics:"
-echo "  posts.events (not fn-posts.post.created)"
-echo "  media-ai.enrichment (not fn-media-ai.post.enhanced)"
-echo "  posts.matching (not fn-matcher.post.matched)"
+echo "Standardized topics:"
+echo "  posts.events (all posts domain events)"
+echo "  posts.enhancements (AI enhanced posts)"
+echo "  posts.matching (matching results)"
+echo "  notifications.events (notification events)"
 ```
 
 #### 3. Consumer Group Lag Issues
@@ -421,15 +422,15 @@ MATCHING_TEMPORAL_WEIGHT=0.1
 **Solutions:**
 ```bash
 # 1. Start local Kafka with correct ports
-docker-compose up -d kafka
+cd fn-infra/local && docker compose up -d kafka
 
 # 2. Use correct local Kafka configuration
-export KAFKA_BOOTSTRAP_SERVERS="localhost:9094"
+export KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
 export KAFKA_SECURITY_PROTOCOL="PLAINTEXT"
 # No SASL credentials needed for local development
 
 # 3. Create topics manually if auto-creation is disabled
-kafka-topics --bootstrap-server localhost:9094 \
+kafka-topics --bootstrap-server localhost:9092 \
   --create --topic posts.events --partitions 1 --replication-factor 1
 ```
 
@@ -438,7 +439,7 @@ kafka-topics --bootstrap-server localhost:9094 \
 **Solutions:**
 ```bash
 # 1. Ensure development database is running
-docker-compose up -d postgres
+cd fn-infra/local && docker compose up -d postgres
 
 # 2. Run migrations for each service
 cd fn-posts && make migrate-up

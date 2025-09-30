@@ -8,6 +8,93 @@
 - **Confluent Cloud Account** for managed Kafka
 - **Twilio Account** for SMS/WhatsApp delivery
 - **Email Provider** (SendGrid, Mailgun, or SMTP)
+- **GitHub Account** for repository hosting and CI/CD
+- **Terraform** >= 1.5.0 for infrastructure as code
+- **Helm** >= 3.12.0 for Kubernetes deployments
+- **kubectl** >= 1.28.0 for cluster management
+
+## GKE Autopilot Infrastructure
+
+### Architecture Overview
+
+**Google Kubernetes Engine (GKE) Autopilot** provides a fully-managed, cost-optimized Kubernetes platform:
+
+- **Serverless Kubernetes**: No node management required
+- **Pay-per-Pod**: Only pay for actual pod resources (~$100/month)
+- **Auto-scaling**: Automatic horizontal and vertical scaling
+- **Built-in Security**: Workload Identity, Binary Authorization, encrypted secrets
+- **Regional Availability**: Multi-zone deployment for high availability
+
+### Cost Breakdown (~$100/month)
+
+| Component | Monthly Cost | Details |
+|-----------|-------------|----------|
+| GKE Autopilot Control Plane | $0 | Free managed control plane |
+| Pod Compute (4 services) | ~$60 | 0.5 vCPU, 1GB RAM per service |
+| Load Balancer | ~$18 | Single HTTPS ingress |
+| Persistent Storage | ~$5 | 20GB for PostgreSQL |
+| Network Egress | ~$10 | API and user traffic |
+| Google Secret Manager | ~$5 | Secure secret storage |
+| Container Registry | ~$2 | Docker image storage |
+
+### Infrastructure Components
+
+#### Terraform Configuration
+Infrastructure as Code for reproducible deployments:
+
+```hcl
+# terraform/main.tf
+resource "google_container_cluster" "autopilot" {
+  name             = "findly-${var.environment}-cluster"
+  location         = var.region
+  enable_autopilot = true
+
+  # Workload Identity for secure pod authentication
+  workload_identity_config {
+    workload_pool = "${var.project_id}.svc.id.goog"
+  }
+
+  # Private cluster for enhanced security
+  private_cluster_config {
+    enable_private_nodes    = true
+    enable_private_endpoint = false
+    master_ipv4_cidr_block = "172.16.0.0/28"
+  }
+}
+```
+
+#### Helm Charts Structure
+Standardized deployment templates for all services:
+
+```yaml
+# helm/<service>/values.yaml
+replicaCount: 2  # High availability
+resources:
+  requests:
+    cpu: 500m     # Autopilot minimum
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+```
+
+#### CI/CD Pipeline with GitHub Actions
+Automated deployment workflow:
+
+```yaml
+# .github/workflows/deploy.yml
+- Build & test code
+- Build Docker image
+- Push to Google Artifact Registry
+- Deploy with Helm to GKE
+- Run smoke tests
+- Monitor deployment
+```
 
 ## Platform Compatibility
 
@@ -163,6 +250,125 @@ UVICORN_LOG_LEVEL=info
 SCHEMA_REGISTRY_URL=https://psrc-xxx.confluent.cloud
 SCHEMA_REGISTRY_KEY=your-schema-key
 SCHEMA_REGISTRY_SECRET=your-schema-secret
+```
+
+## GKE Deployment Setup
+
+### 1. Initial GKE Cluster Setup
+
+```bash
+# Clone infrastructure repository
+cd fn-infra
+
+# Initialize Terraform
+cd terraform
+terraform init
+
+# Create GKE Autopilot cluster (one-time setup)
+terraform plan -var="environment=dev"
+terraform apply -var="environment=dev" -auto-approve
+
+# Configure kubectl
+gcloud container clusters get-credentials findly-dev-cluster --region=us-central1
+
+# Verify cluster access
+kubectl get nodes
+kubectl get namespaces
+```
+
+### 2. Workload Identity Setup
+
+Enable secure pod authentication without service account keys:
+
+```bash
+# Create Google service account
+gcloud iam service-accounts create findly-workload-sa \
+  --display-name="Findly Workload Identity Service Account"
+
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+  --member="serviceAccount:findly-workload-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+  --member="serviceAccount:findly-workload-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# Bind to Kubernetes service account
+kubectl annotate serviceaccount findly-sa \
+  iam.gke.io/gcp-service-account=findly-workload-sa@${PROJECT_ID}.iam.gserviceaccount.com
+
+gcloud iam service-accounts add-iam-policy-binding \
+  findly-workload-sa@${PROJECT_ID}.iam.gserviceaccount.com \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="serviceAccount:${PROJECT_ID}.svc.id.goog[findly/findly-sa]"
+```
+
+### 3. Google Secret Manager Configuration
+
+Store sensitive configuration securely:
+
+```bash
+# Create secrets for each service
+gcloud secrets create kafka-credentials --data-file=kafka-creds.json
+gcloud secrets create database-url --data-file=db-url.txt
+gcloud secrets create twilio-credentials --data-file=twilio.json
+gcloud secrets create openai-api-key --data-file=openai-key.txt
+
+# Grant access to workload identity
+gcloud secrets add-iam-policy-binding kafka-credentials \
+  --member="serviceAccount:findly-workload-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+### 4. Helm Deployment
+
+```bash
+# Add Helm repositories
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+# Install cert-manager for TLS
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set installCRDs=true
+
+# Install NGINX ingress controller
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace
+
+# Deploy services with Helm
+cd fn-infra/helm
+
+# Deploy each service
+helm install fn-posts ./fn-posts -f ./fn-posts/values-dev.yaml
+helm install fn-notifications ./fn-notifications -f ./fn-notifications/values-dev.yaml
+helm install fn-media-ai ./fn-media-ai -f ./fn-media-ai/values-dev.yaml
+helm install fn-matcher ./fn-matcher -f ./fn-matcher/values-dev.yaml
+
+# Verify deployments
+kubectl get deployments -n findly
+kubectl get pods -n findly
+kubectl get services -n findly
+```
+
+### 5. Monitoring and Observability
+
+```bash
+# Enable Google Cloud Monitoring
+gcloud services enable monitoring.googleapis.com
+
+# Deploy monitoring stack
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace
+
+# Access Grafana dashboard
+kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
+# Open http://localhost:3000 (admin/prom-operator)
 ```
 
 ## Cloud Service Setup Steps
